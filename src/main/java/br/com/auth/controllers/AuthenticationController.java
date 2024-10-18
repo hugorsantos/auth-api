@@ -1,9 +1,6 @@
 package br.com.auth.controllers;
 
-import br.com.auth.domain.user.AuthenticationDTO;
-import br.com.auth.domain.user.LoginResponseDTO;
-import br.com.auth.domain.user.RegisterDTO;
-import br.com.auth.domain.user.User;
+import br.com.auth.domain.user.*;
 import br.com.auth.infra.security.TokenService;
 import br.com.auth.repositories.UserRepository;
 import jakarta.validation.Valid;
@@ -24,6 +21,8 @@ public class AuthenticationController {
     @Autowired
     private AuthenticationManager authenticationManager;
     @Autowired
+    private UserRepository userRepository;
+    @Autowired
     private UserRepository repository;
     @Autowired
     private TokenService tokenService;
@@ -32,10 +31,11 @@ public class AuthenticationController {
     public ResponseEntity login(@RequestBody @Valid AuthenticationDTO data){
         var usernamePassword = new UsernamePasswordAuthenticationToken(data.login(), data.password());
         var auth = this.authenticationManager.authenticate(usernamePassword);
-
         var token = tokenService.generateToken((User) auth.getPrincipal());
-
-        return ResponseEntity.ok(new LoginResponseDTO(token));
+        return ResponseEntity.ok(new LoginResponseDTO(
+                token,
+                new UsuarioResponseDTO(this.userRepository.findUserByLogin(data.login()))
+        ));
     }
 
     @PostMapping("/register")
@@ -43,7 +43,7 @@ public class AuthenticationController {
         if(this.repository.findByLogin(data.login()) != null) return ResponseEntity.badRequest().build();
 
         String encryptedPassword = new BCryptPasswordEncoder().encode(data.password());
-        User newUser = new User(data.login(), encryptedPassword, data.role());
+        User newUser = new User(data.login(), data.nome(), encryptedPassword, data.role());
 
         this.repository.save(newUser);
 
